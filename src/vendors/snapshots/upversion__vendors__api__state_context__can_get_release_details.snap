@@ -1,0 +1,13 @@
+---
+source: src/vendors/api.rs
+expression: assets
+---
+Ok(
+    Release {
+        version: "1.0.0",
+        downloads_releases: [
+            "https://foo.test",
+            "https://bar.test",
+        ],
+    },
+)

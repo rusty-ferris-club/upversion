@@ -1,0 +1,27 @@
+---
+source: src/vendors/api.rs
+expression: assets
+---
+Err(
+    reqwest::Error {
+        kind: Request,
+        url: Url {
+            scheme: "http",
+            cannot_be_a_base: false,
+            username: "",
+            password: None,
+            host: Some(
+                Ipv4(
+                    127.0.0.1,
+                ),
+            ),
+            port: Some(
+                1234,
+            ),
+            path: "/",
+            query: None,
+            fragment: None,
+        },
+        source: TimedOut,
+    },
+)

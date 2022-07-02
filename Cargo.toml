@@ -25,3 +25,7 @@ semver = "1.0"
 [dependencies.tera]
 version = "1"
 default-features = false
+
+[dev-dependencies]
+insta = { version = "1", features = ["backtrace"] }
+mockito = "0.31"
