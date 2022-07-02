@@ -1,0 +1,7 @@
+---
+source: src/vendors/api.rs
+expression: "api.get_value_with_error(&json, \"none\")"
+---
+Err(
+    "key: none not found",
+)

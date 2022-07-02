@@ -80,3 +80,107 @@ impl data::Vendor for ApiVendor {
         })
     }
 }
+
+#[cfg(test)]
+mod state_context {
+    use crate::data::Vendor;
+
+    use super::*;
+    use insta::assert_debug_snapshot;
+    use mockito;
+    use serde_json::json;
+
+    #[test]
+    fn can_get_value_with_error() {
+        let url = &mockito::server_url();
+
+        let api = ApiVendor::new(url.as_str());
+
+        let json = json!({
+            "version": "1.0.0",
+        });
+        assert_debug_snapshot!(api.get_value_with_error(&json, "version"));
+        assert_debug_snapshot!(api.get_value_with_error(&json, "none"));
+    }
+
+    #[test]
+    fn can_get_release_details() {
+        let url = &mockito::server_url();
+        println!("{:?}", url);
+
+        let data = r#"
+        {
+            "version": "1.0.0",
+            "release_downloads": [
+                "https://foo.test",
+                "https://bar.test"
+            ]
+        }"#;
+
+        let _m = mockito::mock("GET", "/")
+            .with_body(data)
+            .with_status(200)
+            .create();
+
+        let api = ApiVendor::new(url.as_str());
+        assert_debug_snapshot!(api.get());
+    }
+
+    #[test]
+    fn can_get_release_details_with_custom_response() {
+        let url = &mockito::server_url();
+
+        let deserialize_response = DeserializeResponse {
+            version: "custom_version".to_string(),
+            download_url: "custom_release_downloads".to_string(),
+        };
+
+        let data = r#"
+        {
+            "custom_version": "1.0.0",
+            "custom_release_downloads": [
+                "https://foo.test",
+                "https://bar.test"
+            ]
+        }"#;
+
+        let _m = mockito::mock("GET", "/")
+            .with_body(data)
+            .with_status(200)
+            .create();
+
+        let api = ApiVendor::custom(url.as_str(), Some(deserialize_response), None);
+        assert_debug_snapshot!(api.get());
+    }
+
+    #[test]
+    fn can_get_release_details_with_timeout() {
+        let url = &mockito::server_url();
+
+        let deserialize_response = DeserializeResponse {
+            version: "custom_version".to_string(),
+            download_url: "custom_release_downloads".to_string(),
+        };
+
+        let data = r#"
+        {
+            "custom_version": "1.0.0",
+            "custom_release_downloads": [
+                "https://foo.test",
+                "https://bar.test"
+            ]
+        }"#;
+
+        let _m = mockito::mock("GET", "/")
+            .with_body(data)
+            .with_status(200)
+            .create();
+
+        let api = ApiVendor::custom(
+            url.as_str(),
+            Some(deserialize_response),
+            Some(Duration::from_micros(1)),
+        );
+        assert_debug_snapshot!(api.get());
+    }
+}
