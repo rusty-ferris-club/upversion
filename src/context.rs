@@ -4,6 +4,7 @@ use crate::template::new_version_available;
 use anyhow::anyhow;
 use anyhow::Result;
 use semver::Version;
+use std::env;
 
 /// holds the vendor type and the base version context
 pub struct VersionContext {
@@ -100,6 +101,7 @@ impl VersionContext {
             self.app_name.as_ref(),
             release_version.to_string().as_str(),
             version.to_string().as_str(),
+            self.extract_release_link(&release.downloads_releases),
         ) {
             Ok(s) => Some(s),
             Err(e) => {
@@ -115,5 +117,47 @@ impl VersionContext {
             Ok(v) => Ok(v),
             Err(e) => return Err(anyhow!("invalid version: {}. err:; {}", version, e)),
         }
+    }
+
+    fn extract_release_link(&self, links: &[String]) -> Option<String> {
+        let os = env::consts::OS;
+        let arch = env::consts::ARCH;
+
+        let find = links
+            .iter()
+            .filter(|link| {
+                let os_names = match os {
+                    "macos" => vec!["macos", "darwin"],
+                    _ => vec![os],
+                };
+
+                let link_to_lower = link.to_lowercase();
+
+                for is_name in os_names {
+                    if link_to_lower.contains(is_name) {
+                        return true;
+                    }
+                }
+                false
+            })
+            .filter(|link| {
+                let link_to_lower = link.to_lowercase();
+                if link_to_lower.contains(arch) {
+                    return true;
+                }
+                false
+            })
+            .collect::<Vec<_>>();
+
+        if find.is_empty() {
+            return None;
+        }
+
+        if find.len() > 1 {
+            log::debug!("found then one download link: {:?}", find);
+            return None;
+        }
+
+        Some(find[0].to_owned())
     }
 }
