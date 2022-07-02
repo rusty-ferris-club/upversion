@@ -21,11 +21,6 @@ static DEFAULT_TEMPLATE: &str = r#"
 impl VersionContext {
     /// create new version check context
     ///
-    /// ```rust
-    /// let vendor = Box::new(GitHubVendor::new("rusty-ferris-club", "shellclear"));
-    /// // let vendor = Box::new(ApiVendor::new("http://127.0.0.1:3000"));
-    /// let version_context = VersionContext::new("app-name", vendor);
-    /// ```
     pub fn new(app_name: &str, vendor: Box<dyn Vendor>) -> VersionContext {
         VersionContext {
             vendor,
@@ -36,10 +31,6 @@ impl VersionContext {
 
     /// create custom template
     ///
-    /// ```rust
-    /// let custom_template = "==> [CUSTOM_TEMPLATE]:: 🙆‍♂️ Newer {{ app_name }} version available: {{ new_version }} (currently running: {{ current_version }}) {% if download_link %}| Link: {{ download_link }} {% endif %}";
-    /// let version_context = VersionContext::new("app-name", github).set_template(custom_template.to_string());
-    /// ```
     ///
     /// ## Supported fields:
     /// - `{{ app_name }}`: Application name
