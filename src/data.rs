@@ -1,5 +1,5 @@
 use anyhow::Result;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub trait Vendor {
     fn get(&self) -> Result<Release>;

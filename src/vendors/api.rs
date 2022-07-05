@@ -181,8 +181,7 @@ mod vendor_api_test {
             Some(deserialize_response),
             Some(Duration::from_micros(1)),
         );
-        
-        assert_debug_snapshot!(api.get().is_err());
 
+        assert_debug_snapshot!(api.get().is_err());
     }
 }
