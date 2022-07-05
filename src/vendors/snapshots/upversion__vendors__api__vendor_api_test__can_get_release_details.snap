@@ -1,6 +1,6 @@
 ---
 source: src/vendors/api.rs
-expression: assets
+expression: api.get()
 ---
 Ok(
     Release {

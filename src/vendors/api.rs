@@ -82,7 +82,7 @@ impl data::Vendor for ApiVendor {
 }
 
 #[cfg(test)]
-mod state_context {
+mod vendor_api_test {
     use crate::data::Vendor;
 
     use super::*;
@@ -181,6 +181,8 @@ mod state_context {
             Some(deserialize_response),
             Some(Duration::from_micros(1)),
         );
-        assert_debug_snapshot!(api.get());
+        
+        assert_debug_snapshot!(api.get().is_err());
+
     }
 }

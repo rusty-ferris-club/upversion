@@ -1,0 +1,5 @@
+---
+source: src/vendors/api.rs
+expression: api.get().is_err()
+---
+true

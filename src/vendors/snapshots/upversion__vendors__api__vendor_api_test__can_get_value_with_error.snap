@@ -1,6 +1,6 @@
 ---
 source: src/vendors/api.rs
-expression: assets
+expression: "api.get_value_with_error(&json, \"version\")"
 ---
 Ok(
     String(

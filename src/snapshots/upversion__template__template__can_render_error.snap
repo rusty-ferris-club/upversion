@@ -1,0 +1,19 @@
+---
+source: src/template.rs
+expression: "new_version_available(template, \"app-name-template\", \"1.0.0\", \"0.1.1\",\n    Some(\"https://foo.bar\".to_string()))"
+---
+Err(
+    Error {
+        kind: Msg(
+            "Failed to render '__tera_one_off'",
+        ),
+        source: Some(
+            Error {
+                kind: Msg(
+                    "Variable `not_exists` not found in context while rendering '__tera_one_off'",
+                ),
+                source: None,
+            },
+        ),
+    },
+)

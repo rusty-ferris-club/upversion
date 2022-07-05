@@ -1,0 +1,7 @@
+---
+source: src/template.rs
+expression: "new_version_available(template, \"app-name-template\", \"1.0.0\", \"0.1.1\",\n    Some(\"https://foo.bar\".to_string()))"
+---
+Ok(
+    "app_name:: app-name-template version: 1.0.0 current version: 0.1.1 download_link: https://foo.bar",
+)

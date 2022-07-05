@@ -6,7 +6,7 @@ use reqwest::{
     header::{HeaderMap, ACCEPT, USER_AGENT},
     Url,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Default timeout request
@@ -14,7 +14,7 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 /// Default GitHub base URL
 const DEFAULT_GITHUB_URL: &str = "https://api.github.com";
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 struct ReleasesResponse {
     #[serde(rename = "tag_name")]
     tag_name: String,
@@ -22,7 +22,7 @@ struct ReleasesResponse {
     assets: Vec<ReleaseAssetResponse>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 struct ReleaseAssetResponse {
     #[serde(rename = "browser_download_url")]
     browser_download_url: String,
@@ -110,4 +110,63 @@ impl data::Vendor for GitHubVendor {
             downloads_releases: download_releases.clone(),
         })
     }
+}
+
+#[cfg(test)]
+mod vendor_github_github {
+    use crate::data::Vendor;
+
+    use super::*;
+    use insta::assert_debug_snapshot;
+    use mockito::{Matcher};
+
+    #[test]
+    fn can_get_release_details() {
+        let url = &mockito::server_url();
+        
+        let github = GitHubVendor::custom("owner", "repo", None, Some(url.to_string()));
+
+        let data = r#"[
+        {
+                "tag_name": "v0.1.6",
+                "assets": [
+                    {
+                        "browser_download_url": "https://github.com/foo"
+                    },
+                    {
+                        "browser_download_url": "https://github.com/bar"
+                    }
+                ]
+            }
+        ]
+        "#;
+        
+        let _m = mockito::mock("GET", "/repos/owner/repo/releases")
+            .match_header("accept", "application/vnd.github.v3+json")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "1".into()))
+            .with_body(data)
+            .with_status(200)
+            .create();
+
+        assert_debug_snapshot!(github.get());
+
+    }
+
+    #[test]
+    fn can_get_release_details_without_releases() {
+        let url = &mockito::server_url();
+        
+        let github = GitHubVendor::custom("owner", "repo", None, Some(url.to_string()));
+        
+        let _m = mockito::mock("GET", "/repos/owner/repo/releases")
+            .match_header("accept", "application/vnd.github.v3+json")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "1".into()))
+            .with_body("[]")
+            .with_status(200)
+            .create();
+
+        assert_debug_snapshot!(github.get());
+
+    }
+
 }

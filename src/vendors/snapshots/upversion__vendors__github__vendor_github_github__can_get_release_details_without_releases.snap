@@ -1,0 +1,7 @@
+---
+source: src/vendors/github.rs
+expression: github.get()
+---
+Err(
+    "releases not found",
+)

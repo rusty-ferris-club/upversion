@@ -1,0 +1,13 @@
+---
+source: src/vendors/github.rs
+expression: github.get()
+---
+Ok(
+    Release {
+        version: "v0.1.6",
+        downloads_releases: [
+            "https://github.com/foo",
+            "https://github.com/bar",
+        ],
+    },
+)
