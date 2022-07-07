@@ -13,10 +13,9 @@ fn main() {
         None,
     ));
 
-    let version_context = VersionContext::new("app-name", api);
-    let version_template = version_context.run("0.0.1");
+    let version_context = VersionContext::new("app-name", api).unwrap();
+    version_context.run("0.0.1");
 
-    if let Some(new_version) = version_template {
-        println!("{}", new_version);
-    };
+    std::thread::sleep(time::Duration::from_secs(5));
+    version_context.printstd()
 }
