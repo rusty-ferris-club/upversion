@@ -12,7 +12,7 @@ use tokio::runtime::{Builder, Runtime};
 /// holds the vendor type and the base version context
 pub struct VersionContext {
     runtime: Runtime,
-    vendor: Box<dyn Vendor>,
+    vendor: Arc<Mutex<Box<dyn Vendor + Send>>>,
     app_name: String,
     result: Arc<Mutex<HashMap<String, NewerReleaseVersion>>>,
 }
@@ -25,20 +25,20 @@ static DEFAULT_TEMPLATE: &str = r#"
 impl VersionContext {
     /// create new version check context
     ///
-    pub fn new(app_name: &str, vendor: Box<dyn Vendor>) -> Result<VersionContext> {
+    pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>) -> Result<VersionContext> {
         Ok(Self {
             runtime: Builder::new_multi_thread()
                 .worker_threads(1)
                 .enable_all()
                 .build()?,
-            vendor,
+            vendor: Arc::new(Mutex::new(vendor)),
             app_name: app_name.to_string(),
             result: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
     pub fn run(&self, version: &str) -> Result<()> {
-        let version = match self.parse_version(version) {
+        let version = match Self::parse_version(version) {
             Ok(v) => v,
             Err(e) => {
                 log::debug!("invalid version: {}. err: {:?}", version, e);
@@ -46,9 +46,10 @@ impl VersionContext {
             }
         };
         let res = self.result.clone();
+        let vendor = self.vendor.clone();
         self.runtime.spawn(async move {
             let mut r = res.lock().unwrap();
-            let release = match self.vendor.get() {
+            let release = match vendor.lock().unwrap().get() {
                 Ok(r) => r,
                 Err(e) => {
                     log::debug!("could not get release details. err: {:?}", e);
@@ -62,7 +63,7 @@ impl VersionContext {
                 release.version
             };
 
-            let release_version = match self.parse_version(release_version.as_ref()) {
+            let release_version = match Self::parse_version(release_version.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
                     println!("{}", release_version);
@@ -85,7 +86,7 @@ impl VersionContext {
                 NewerReleaseVersion {
                     current_version: version,
                     new_version: release_version,
-                    release_url: self.extract_release_link(&release.downloads_releases),
+                    release_url: Self::extract_release_link(&release.downloads_releases),
                 },
             );
         });
@@ -110,8 +111,9 @@ impl VersionContext {
     }
 
     fn render(&self, template: &str) -> Result<String> {
-        let newerReleaseVersion = match self.result.lock() {
-            Ok(r) => match r.get("result") {
+        let r = self.result.lock();
+        let newerReleaseVersion = match r {
+            Ok(ref r) => match r.get("result") {
                 Some(v) => v,
                 None => {
                     log::debug!("result is empty");
@@ -128,19 +130,19 @@ impl VersionContext {
             self.app_name.as_ref(),
             &newerReleaseVersion.new_version,
             &newerReleaseVersion.new_version,
-            newerReleaseVersion.release_url,
+            newerReleaseVersion.release_url.clone(),
         )
     }
 
     /// parse text version to Version struct
-    fn parse_version(&self, version: &str) -> Result<Version> {
+    fn parse_version(version: &str) -> Result<Version> {
         match Version::parse(version) {
             Ok(v) => Ok(v),
             Err(e) => return Err(anyhow!("invalid version: {}. err:; {}", version, e)),
         }
     }
 
-    fn extract_release_link(&self, links: &[String]) -> Option<String> {
+    fn extract_release_link(links: &[String]) -> Option<String> {
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
 
