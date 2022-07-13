@@ -1,5 +1,5 @@
 use upversion::vendors::{ApiVendor, DeserializeResponse};
-use upversion::VersionContext;
+use upversion::CheckVersion;
 
 fn main() {
     let deserialize_response = DeserializeResponse {
@@ -13,9 +13,9 @@ fn main() {
         None,
     ));
 
-    let version_context = VersionContext::new("app-name", api).unwrap();
+    let version_context = CheckVersion::new("app-name", api).unwrap();
     version_context.run("0.0.1");
 
-    std::thread::sleep(time::Duration::from_secs(5));
+    std::thread::sleep(std::time::Duration::from_secs(5));
     version_context.printstd()
 }

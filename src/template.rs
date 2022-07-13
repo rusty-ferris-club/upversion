@@ -21,7 +21,7 @@ pub fn new_version_available(
 }
 
 #[cfg(test)]
-mod template {
+mod test_template {
     use super::*;
     use insta::assert_debug_snapshot;
 

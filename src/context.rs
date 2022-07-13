@@ -2,7 +2,7 @@
 use crate::data::{NewerReleaseVersion, Vendor};
 use crate::template::new_version_available;
 use anyhow::anyhow;
-use anyhow::Result;
+use anyhow::Result as AnyResult;
 use semver::Version;
 use std::collections::HashMap;
 use std::env;
@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use tokio::runtime::{Builder, Runtime};
 
 /// holds the vendor type and the base version context
-pub struct VersionContext {
+pub struct CheckVersion {
     runtime: Runtime,
     vendor: Arc<Mutex<Box<dyn Vendor + Send>>>,
     app_name: String,
@@ -22,10 +22,13 @@ static DEFAULT_TEMPLATE: &str = r#"
 ==> 🙆‍♂️ Newer {{ app_name }} version available: {{ new_version }} (currently running: {{ current_version }}) {% if download_link %}| Link: {{ download_link }} {% endif %}
 "#;
 
-impl VersionContext {
-    /// create new version check context
+impl CheckVersion {
+    /// Create a new check version instance
     ///
-    pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>) -> Result<VersionContext> {
+    /// # Errors
+    ///
+    /// Will return `Err` if runtime multi thread could not be build
+    pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>) -> AnyResult<Self> {
         Ok(Self {
             runtime: Builder::new_multi_thread()
                 .worker_threads(1)
@@ -37,7 +40,12 @@ impl VersionContext {
         })
     }
 
-    pub fn run(&self, version: &str) -> Result<()> {
+    /// Run version check in the background
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if runtime multi thread could not be build
+    pub fn run(&self, version: &str) -> AnyResult<()> {
         let version = match Self::parse_version(version) {
             Ok(v) => v,
             Err(e) => {
@@ -48,8 +56,16 @@ impl VersionContext {
         let res = self.result.clone();
         let vendor = self.vendor.clone();
         self.runtime.spawn(async move {
-            let mut r = res.lock().unwrap();
-            let release = match vendor.lock().unwrap().get() {
+            let mut r = match res.lock() {
+                Ok(r) => r,
+                Err(e) => return,
+            };
+
+            let vendor_mutex = match vendor.lock() {
+                Ok(v) => v,
+                Err(e) => return,
+            };
+            let release = match vendor_mutex.get() {
                 Ok(r) => r,
                 Err(e) => {
                     log::debug!("could not get release details. err: {:?}", e);
@@ -110,9 +126,9 @@ impl VersionContext {
         self.render(template);
     }
 
-    fn render(&self, template: &str) -> Result<String> {
+    fn render(&self, template: &str) -> AnyResult<String> {
         let r = self.result.lock();
-        let newerReleaseVersion = match r {
+        let newer_release_version = match r {
             Ok(ref r) => match r.get("result") {
                 Some(v) => v,
                 None => {
@@ -128,14 +144,14 @@ impl VersionContext {
         new_version_available(
             template,
             self.app_name.as_ref(),
-            &newerReleaseVersion.new_version,
-            &newerReleaseVersion.new_version,
-            newerReleaseVersion.release_url.clone(),
+            &newer_release_version.new_version,
+            &newer_release_version.current_version,
+            newer_release_version.release_url.clone(),
         )
     }
 
     /// parse text version to Version struct
-    fn parse_version(version: &str) -> Result<Version> {
+    fn parse_version(version: &str) -> AnyResult<Version> {
         match Version::parse(version) {
             Ok(v) => Ok(v),
             Err(e) => return Err(anyhow!("invalid version: {}. err:; {}", version, e)),
@@ -181,6 +197,6 @@ impl VersionContext {
             return None;
         }
 
-        Some(find[0].to_owned())
+        Some(find[0].clone())
     }
 }
