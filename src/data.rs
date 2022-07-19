@@ -1,8 +1,10 @@
 use anyhow::Result;
+use curl::easy::Easy;
 use serde::{Deserialize, Serialize};
+use std::sync::MutexGuard;
 
 pub trait Vendor {
-    fn get(&self) -> Result<Release>;
+    fn get(&self, client: MutexGuard<Easy>) -> Result<Release>;
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

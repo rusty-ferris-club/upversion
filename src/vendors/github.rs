@@ -1,16 +1,10 @@
 use crate::data;
 use anyhow::anyhow;
 use anyhow::Result;
-use reqwest::{
-    blocking::Client,
-    header::{HeaderMap, ACCEPT, USER_AGENT},
-    Url,
-};
+use curl::easy::{Easy, List};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::sync::MutexGuard;
 
-/// Default timeout request
-const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 /// Default GitHub base URL
 const DEFAULT_GITHUB_URL: &str = "https://api.github.com";
 
@@ -29,7 +23,6 @@ struct ReleaseAssetResponse {
 }
 
 pub struct GitHubVendor {
-    client: Client,
     base_url: String,
     owner: String,
     repo: String,
@@ -38,66 +31,57 @@ pub struct GitHubVendor {
 impl GitHubVendor {
     /// create GitHubVendor instance
     pub fn new(owner: &str, repo: &str) -> Self {
-        Self::custom(owner, repo, None, None)
-    }
-
-    /// create GitHubVendor instance with timeout request override
-    pub fn with_timeout(owner: &str, repo: &str, timeout: Duration) -> Self {
-        Self::custom(owner, repo, Some(timeout), None)
+        Self::custom(owner, repo, None)
     }
 
     /// create GitHubVendor instance with custom settings
-    pub fn custom(
-        owner: &str,
-        repo: &str,
-        timeout: Option<Duration>,
-        base_url: Option<String>,
-    ) -> Self {
-        let client = reqwest::blocking::Client::builder()
-            .default_headers(Self::default_headers(format!("{}-{}", owner, repo)))
-            .timeout(timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT))
-            .build()
-            .unwrap();
-
+    pub fn custom(owner: &str, repo: &str, base_url: Option<String>) -> Self {
         Self {
-            client,
             base_url: base_url.unwrap_or_else(|| DEFAULT_GITHUB_URL.to_string()),
             owner: owner.to_string(),
             repo: repo.to_string(),
         }
     }
 
-    fn default_headers(agent: String) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, format!("upversion-{}", agent).parse().unwrap());
-        headers.insert(ACCEPT, "application/vnd.github.v3+json".parse().unwrap());
-        headers
+    fn default_headers() -> Result<List> {
+        let mut headers = List::new();
+        headers.append("accept: application/vnd.github.v3+json")?;
+        Ok(headers)
     }
 }
 
 impl data::Vendor for GitHubVendor {
     /// Get latest release version
-    fn get(&self) -> Result<data::Release> {
-        let url = Url::parse_with_params(
-            format!(
-                "{}/repos/{}/{}/releases",
-                self.base_url, self.owner, self.repo
-            )
-            .as_ref(),
-            &[("per_page", "1")],
-        )
-        .unwrap();
+    fn get(&self, client: MutexGuard<Easy>) -> Result<data::Release> {
+        let mut json = Vec::new();
+        let mut client = client;
 
-        let response = self.client.get(url).send()?;
+        let url = format!(
+            "{}/repos/{}/{}/releases?per_page=1",
+            self.base_url, self.owner, self.repo
+        );
+        client.url(&url)?;
 
-        // parse response
-        let releases_response = response.json::<Vec<ReleasesResponse>>()?;
-        if releases_response.is_empty() {
+        client.http_headers(Self::default_headers()?)?;
+        {
+            let mut transfer = client.transfer();
+            transfer
+                .write_function(|data| {
+                    json.extend_from_slice(data);
+                    Ok(data.len())
+                })
+                .unwrap();
+            transfer.perform()?;
+        }
+
+        let response: Vec<ReleasesResponse> = serde_json::from_slice(&json)?;
+
+        if response.is_empty() {
             return Err(anyhow!("releases not found"));
         }
 
         // github request limited to 1 item response (see request quey parameter).
-        let release_details = releases_response.first().unwrap();
+        let release_details = response.first().unwrap();
 
         let download_releases = &release_details
             .assets
@@ -116,15 +100,15 @@ impl data::Vendor for GitHubVendor {
 mod vendor_github_github {
     use crate::data::Vendor;
 
-    use super::*;
+    use super::{Easy, GitHubVendor};
     use insta::assert_debug_snapshot;
-    use mockito::Matcher;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn can_get_release_details() {
         let url = &mockito::server_url();
 
-        let github = GitHubVendor::custom("owner", "repo", None, Some(url.to_string()));
+        let github = GitHubVendor::custom("owner", "repo", Some(url.to_string()));
 
         let data = r#"[
         {
@@ -141,29 +125,29 @@ mod vendor_github_github {
         ]
         "#;
 
-        let _m = mockito::mock("GET", "/repos/owner/repo/releases")
+        let _m = mockito::mock("GET", "/repos/owner/repo/releases?per_page=1")
             .match_header("accept", "application/vnd.github.v3+json")
-            .match_query(Matcher::UrlEncoded("per_page".into(), "1".into()))
             .with_body(data)
             .with_status(200)
             .create();
 
-        assert_debug_snapshot!(github.get());
+        let easy = Easy::new();
+        assert_debug_snapshot!(github.get(Arc::new(Mutex::new(easy)).lock().unwrap()));
     }
 
     #[test]
     fn can_get_release_details_without_releases() {
         let url = &mockito::server_url();
 
-        let github = GitHubVendor::custom("owner", "repo", None, Some(url.to_string()));
+        let github = GitHubVendor::custom("owner", "repo", Some(url.to_string()));
 
-        let _m = mockito::mock("GET", "/repos/owner/repo/releases")
+        let _m = mockito::mock("GET", "/repos/owner/repo/releases?per_page=1")
             .match_header("accept", "application/vnd.github.v3+json")
-            .match_query(Matcher::UrlEncoded("per_page".into(), "1".into()))
             .with_body("[]")
             .with_status(200)
             .create();
 
-        assert_debug_snapshot!(github.get());
+        let easy = Easy::new();
+        assert_debug_snapshot!(github.get(Arc::new(Mutex::new(easy)).lock().unwrap()));
     }
 }

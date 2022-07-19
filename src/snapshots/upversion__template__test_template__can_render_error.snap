@@ -1,0 +1,7 @@
+---
+source: src/template.rs
+expression: "new_version_available(template, \"app-name-template\",\n    &semver::Version::parse(\"1.0.0\").unwrap(),\n    &semver::Version::parse(\"0.1.1\").unwrap(), None)"
+---
+Ok(
+    "app_name:: app-name-template version: 1.0.0 current version: 0.1.1 ",
+)

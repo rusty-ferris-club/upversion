@@ -3,14 +3,16 @@ use crate::data::{NewerReleaseVersion, Vendor};
 use crate::template::new_version_available;
 use anyhow::anyhow;
 use anyhow::Result as AnyResult;
+use curl::easy::Easy;
 use semver::Version;
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::runtime::{Builder, Runtime};
-
 /// holds the vendor type and the base version context
 pub struct CheckVersion {
+    client: Arc<Mutex<Easy>>,
     runtime: Runtime,
     vendor: Arc<Mutex<Box<dyn Vendor + Send>>>,
     app_name: String,
@@ -28,8 +30,13 @@ impl CheckVersion {
     /// # Errors
     ///
     /// Will return `Err` if runtime multi thread could not be build
-    pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>) -> AnyResult<Self> {
+    pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>, timeout: u64) -> AnyResult<Self> {
+        let mut easy = Easy::new();
+        easy.timeout(Duration::from_secs(timeout))?;
+        easy.useragent(format!("User-Agent: upversion-{}", app_name).as_str())?;
+
         Ok(Self {
+            client: Arc::new(Mutex::new(easy)),
             runtime: Builder::new_multi_thread()
                 .worker_threads(1)
                 .enable_all()
@@ -55,17 +62,34 @@ impl CheckVersion {
         };
         let res = self.result.clone();
         let vendor = self.vendor.clone();
+        let client = self.client.clone();
+
         self.runtime.spawn(async move {
             let mut r = match res.lock() {
                 Ok(r) => r,
-                Err(e) => return,
+                Err(e) => {
+                    log::debug!("cloud not lock result. err: {:?}", e);
+                    return;
+                }
             };
 
             let vendor_mutex = match vendor.lock() {
                 Ok(v) => v,
-                Err(e) => return,
+                Err(e) => {
+                    log::debug!("cloud not lock vendor. err:: {:?}", e);
+                    return;
+                }
             };
-            let release = match vendor_mutex.get() {
+
+            let client = match client.lock() {
+                Ok(v) => v,
+                Err(e) => {
+                    log::debug!("cloud not lock vendor. err:: {:?}", e);
+                    return;
+                }
+            };
+
+            let release = match vendor_mutex.get(client) {
                 Ok(r) => r,
                 Err(e) => {
                     log::debug!("could not get release details. err: {:?}", e);
@@ -82,7 +106,6 @@ impl CheckVersion {
             let release_version = match Self::parse_version(release_version.as_ref()) {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("{}", release_version);
                     log::debug!("invalid release version: {}. err: {:?}", release_version, e);
                     return;
                 }
@@ -111,7 +134,10 @@ impl CheckVersion {
     }
 
     pub fn printstd(&self) {
-        self.render(DEFAULT_TEMPLATE);
+        match self.render(DEFAULT_TEMPLATE) {
+            Ok(r) => println!("{}", r),
+            Err(r) => log::debug!("render error {:?}", r),
+        };
     }
 
     /// create custom template
@@ -123,7 +149,10 @@ impl CheckVersion {
     /// - `{{ current_version }}`: Current version
     /// - `{{ download_link }}`: Link to the new release file
     pub fn printstd_with_template(&self, template: &str) {
-        self.render(template);
+        match self.render(template) {
+            Ok(r) => println!("{}", r),
+            Err(r) => log::debug!("render error {:?}", r),
+        };
     }
 
     fn render(&self, template: &str) -> AnyResult<String> {
@@ -141,6 +170,7 @@ impl CheckVersion {
                 return Err(anyhow!("lock error: {:?}", e));
             }
         };
+
         new_version_available(
             template,
             self.app_name.as_ref(),

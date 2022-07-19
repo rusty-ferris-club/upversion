@@ -39,13 +39,13 @@ mod test_template {
 
     #[test]
     fn can_render_error() {
-        let template = "{{ not_exists }}";
+        let template  = "app_name:: {{ app_name }} version: {{ new_version }} current version: {{ current_version }} {% if download_link %}| Link: {{ download_link }} {% endif %}";
         assert_debug_snapshot!(new_version_available(
             template,
             "app-name-template",
             &semver::Version::parse("1.0.0").unwrap(),
             &semver::Version::parse("0.1.1").unwrap(),
-            Some("https://foo.bar".to_string())
+            None
         ));
     }
 }
