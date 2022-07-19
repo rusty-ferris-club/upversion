@@ -1,4 +1,4 @@
-
+[![Build](https://github.com/rusty-ferris-club/upversion/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rusty-ferris-club/upversion/actions/workflows/ci.yml)
 <p align="center">
 <br/>
 <br/>
