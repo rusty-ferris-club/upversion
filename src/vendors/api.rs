@@ -1,19 +1,16 @@
 use crate::data;
 use anyhow::anyhow;
 use anyhow::Result;
-use reqwest::blocking::Client;
+use curl::easy::Easy;
 use serde_json::Value;
-use std::time::Duration;
+use std::sync::MutexGuard;
 
-/// Default timeout request
-const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 /// Version key when deserialize the response
 const DESERIALIZE_VERSION_KEY: &str = "version";
 /// Release download link key when deserialize the response
 const DESERIALIZE_DOWNLOAD_URL_KEY: &str = "release_downloads";
 
-pub struct ApiVendor {
-    client: Client,
+pub struct Api {
     url: String,
     deserialize_response: DeserializeResponse,
 }
@@ -32,22 +29,13 @@ impl Default for DeserializeResponse {
     }
 }
 
-impl ApiVendor {
+impl Api {
     pub fn new(url: &str) -> Self {
-        Self::custom(url, None, None)
+        Self::custom(url, None)
     }
 
-    pub fn custom(
-        url: &str,
-        deserialize_response: Option<DeserializeResponse>,
-        timeout: Option<Duration>,
-    ) -> Self {
-        let client = reqwest::blocking::Client::builder()
-            .timeout(timeout.unwrap_or(DEFAULT_REQUEST_TIMEOUT))
-            .build()
-            .unwrap();
+    pub fn custom(url: &str, deserialize_response: Option<DeserializeResponse>) -> Self {
         Self {
-            client,
             url: url.to_string(),
             deserialize_response: deserialize_response.unwrap_or_default(),
         }
@@ -60,19 +48,31 @@ impl ApiVendor {
         }
     }
 }
-impl data::Vendor for ApiVendor {
-    fn get(&self) -> Result<data::Release> {
-        let response = self.client.get(&self.url).send()?;
+impl data::Vendor for Api {
+    fn get(&self, client: MutexGuard<Easy>) -> Result<data::Release> {
+        let mut json = Vec::new();
+        let mut client = client;
+        client.url(&self.url)?;
 
-        let v: Value = serde_json::from_str(&response.text()?)?;
+        {
+            let mut transfer = client.transfer();
+            transfer
+                .write_function(|data| {
+                    json.extend_from_slice(data);
+                    Ok(data.len())
+                })
+                .unwrap();
+            transfer.perform()?;
+        }
 
+        let response: Value = serde_json::from_slice(&json)?;
         let download_releases: Vec<String> = serde_json::from_value(
-            self.get_value_with_error(&v, &self.deserialize_response.download_url)?,
+            self.get_value_with_error(&response, &self.deserialize_response.download_url)?,
         )?;
 
         Ok(data::Release {
             version: self
-                .get_value_with_error(&v, &self.deserialize_response.version)?
+                .get_value_with_error(&response, &self.deserialize_response.version)?
                 .as_str()
                 .unwrap()
                 .to_string(),
@@ -89,12 +89,13 @@ mod vendor_api_test {
     use insta::assert_debug_snapshot;
     use mockito;
     use serde_json::json;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn can_get_value_with_error() {
         let url = &mockito::server_url();
 
-        let api = ApiVendor::new(url.as_str());
+        let api = Api::new(url.as_str());
 
         let json = json!({
             "version": "1.0.0",
@@ -106,7 +107,6 @@ mod vendor_api_test {
     #[test]
     fn can_get_release_details() {
         let url = &mockito::server_url();
-        println!("{:?}", url);
 
         let data = r#"
         {
@@ -122,8 +122,10 @@ mod vendor_api_test {
             .with_status(200)
             .create();
 
-        let api = ApiVendor::new(url.as_str());
-        assert_debug_snapshot!(api.get());
+        let api = Api::new(url.as_str());
+
+        let easy = Easy::new();
+        assert_debug_snapshot!(api.get(Arc::new(Mutex::new(easy)).lock().unwrap()));
     }
 
     #[test]
@@ -149,39 +151,8 @@ mod vendor_api_test {
             .with_status(200)
             .create();
 
-        let api = ApiVendor::custom(url.as_str(), Some(deserialize_response), None);
-        assert_debug_snapshot!(api.get());
-    }
-
-    #[test]
-    fn can_get_release_details_with_timeout() {
-        let url = &mockito::server_url();
-
-        let deserialize_response = DeserializeResponse {
-            version: "custom_version".to_string(),
-            download_url: "custom_release_downloads".to_string(),
-        };
-
-        let data = r#"
-        {
-            "custom_version": "1.0.0",
-            "custom_release_downloads": [
-                "https://foo.test",
-                "https://bar.test"
-            ]
-        }"#;
-
-        let _m = mockito::mock("GET", "/")
-            .with_body(data)
-            .with_status(200)
-            .create();
-
-        let api = ApiVendor::custom(
-            url.as_str(),
-            Some(deserialize_response),
-            Some(Duration::from_micros(1)),
-        );
-
-        assert_debug_snapshot!(api.get().is_err());
+        let api = Api::custom(url.as_str(), Some(deserialize_response));
+        let easy = Easy::new();
+        assert_debug_snapshot!(api.get(Arc::new(Mutex::new(easy)).lock().unwrap()));
     }
 }

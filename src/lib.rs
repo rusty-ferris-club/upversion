@@ -6,4 +6,4 @@ mod data;
 mod template;
 pub mod vendors;
 
-pub use self::context::VersionContext;
+pub use self::context::CheckVersion;

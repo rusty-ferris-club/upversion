@@ -1,12 +1,13 @@
-use upversion::vendors::ApiVendor;
-use upversion::VersionContext;
+use anyhow::Result;
+use upversion::vendors::Api;
+use upversion::CheckVersion;
 
-fn main() {
-    let api = Box::new(ApiVendor::new("http://127.0.0.1:3000"));
-    let version_context = VersionContext::new("app-name", api);
-    let version_template = version_context.run("0.0.1");
+fn main() -> Result<()> {
+    let api = Box::new(Api::new("http://127.0.0.1:3000"));
+    let version_context = CheckVersion::new("app-name", api, 2)?;
+    version_context.run("0.0.1")?;
 
-    if let Some(new_version) = version_template {
-        println!("{}", new_version);
-    };
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    version_context.printstd();
+    Ok(())
 }

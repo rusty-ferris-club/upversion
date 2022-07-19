@@ -1,15 +1,15 @@
+use anyhow::Result;
 use upversion::vendors::GitHubVendor;
-use upversion::VersionContext;
+use upversion::CheckVersion;
 
 const CUSTOM_TEMPLATE: &str = r#"==> [CUSTOM_TEMPLATE]:: 🙆‍♂️ Newer {{ app_name }} version available: {{ new_version }} (currently running: {{ current_version }}) {% if download_link %}| Link: {{ download_link }} {% endif %}"#;
-fn main() {
+
+fn main() -> Result<()> {
     let github = Box::new(GitHubVendor::new("owner", "repo"));
-    let version_context =
-        VersionContext::new("app-name", github).set_template(CUSTOM_TEMPLATE.to_string());
+    let version_context = CheckVersion::new("app-name", github, 2)?;
+    version_context.run("0.0.1")?;
 
-    let version_template = version_context.run("0.0.1");
-
-    if let Some(new_version) = version_template {
-        println!("{}", new_version);
-    };
+    std::thread::sleep(std::time::Duration::from_secs(3));
+    version_context.printstd_with_template(CUSTOM_TEMPLATE);
+    Ok(())
 }
