@@ -29,3 +29,6 @@ default-features = false
 [dev-dependencies]
 insta = { version = "1", features = ["backtrace"] }
 mockito = "0.31"
+
+[workspace]
+members = ["xtask"]
