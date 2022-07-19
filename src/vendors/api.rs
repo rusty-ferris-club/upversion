@@ -5,16 +5,44 @@ use curl::easy::Easy;
 use serde_json::Value;
 use std::sync::MutexGuard;
 
-/// Version key when deserialize the response
+// Version key when deserialize the response
 const DESERIALIZE_VERSION_KEY: &str = "version";
-/// Release download link key when deserialize the response
+// Release download link key when deserialize the response
 const DESERIALIZE_DOWNLOAD_URL_KEY: &str = "release_downloads";
 
+///  Rest api vendor
+///
+/// If you manage your program version internally, you allow to serve the new version with your custom logic via rest API, and `upversion` will query your endpoint.
+///  
+/// ## Usage Example
+///  ```
+/// use anyhow::Result;
+/// use upversion::vendors::Api;
+/// use upversion::CheckVersion;
+///
+/// fn main() -> Result<()> {
+///     let api = Box::new(Api::new("http://127.0.0.1:3000"));
+///     let timeout = 2; // in seconds
+///     let version_context = CheckVersion::new("app-name", api, timeout)?;
+///
+///     // run command execute upversion check in the background and finish immediately.
+///     version_context.run("0.0.1")?;
+///
+///     // sleep here simulator your program
+///     std::thread::sleep(std::time::Duration::from_secs(3));
+///
+///     // at the end of your program, you can call printstd to print to the STDOUT a alert information for a new version which released
+///     version_context.printstd();
+///     Ok(())
+/// }
+///
+///  ```
 pub struct Api {
     url: String,
     deserialize_response: DeserializeResponse,
 }
 
+/// Deserialize api response to version and download url
 pub struct DeserializeResponse {
     pub version: String,
     pub download_url: String,
@@ -30,10 +58,71 @@ impl Default for DeserializeResponse {
 }
 
 impl Api {
+    /// Create a new API vendor with default deserialize response.
+    ///
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Endpoint URL
+    ///
+    /// ## Expected response:
+    /// ```json
+    /// {
+    ///     "version": "",
+    ///      "release_downloads": ""
+    /// }
+    /// ```
     pub fn new(url: &str) -> Self {
         Self::custom(url, None)
     }
 
+    /// Create a new API vendor with customize deserialize response.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Endpoint URL
+    /// * `deserialize_response` - describe via `DeserializeResponse` the response keys
+    ///
+    /// ## Expected response:
+    /// ```json
+    /// {
+    ///     "custom_version": "",
+    ///      "custom_release_downloads": []
+    /// }
+    /// ```
+    ///
+    /// ## Implementation
+    /// ```
+    /// use anyhow::Result;
+    /// use upversion::vendors::{Api, DeserializeResponse};
+    /// use upversion::CheckVersion;
+    ///
+    /// fn main() -> Result<()> {
+    ///     // server json response: { custom_version: '', custom_release_downloads: [] }
+    ///     let deserialize_response = DeserializeResponse {
+    ///         version: "custom_version".to_string(),
+    ///         download_url: "custom_release_downloads".to_string(),
+    ///     };
+    ///
+    ///     let api = Box::new(Api::custom(
+    ///         "http://127.0.0.1:3000",
+    ///         Some(deserialize_response),
+    ///     ));
+    ///
+    ///     let timeout = 2; // in seconds
+    ///     let version_context = CheckVersion::new("app-name", api, timeout)?;
+    ///
+    ///     // run command execute upversion check in the background and finish immediately.
+    ///     version_context.run("0.0.1")?;
+    ///
+    ///     // sleep here simulator your program
+    ///     std::thread::sleep(std::time::Duration::from_secs(3));
+    ///
+    ///     // at the end of your program, you can call printstd to print to the STDOUT a alert information for a new version which released
+    ///     version_context.printstd();
+    ///     Ok(())
+    /// }
+    ///
     pub fn custom(url: &str, deserialize_response: Option<DeserializeResponse>) -> Self {
         Self {
             url: url.to_string(),

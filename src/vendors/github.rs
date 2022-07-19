@@ -22,6 +22,32 @@ struct ReleaseAssetResponse {
     browser_download_url: String,
 }
 
+/// GitHub vendor
+///
+/// Check if there is a new version from releases page
+///
+/// ## Usage Example
+/// ```
+/// use anyhow::Result;
+/// use upversion::vendors::GitHubVendor;
+/// use upversion::CheckVersion;
+///
+/// fn main() -> Result<()> {
+///     let github = Box::new(GitHubVendor::new("owner", "repo"));
+///     let timeout = 2; // in seconds
+///     let version_context = CheckVersion::new("app-name", github, timeout)?;
+///
+///     // run command execute upversion check in the background and finish immediately.
+///     version_context.run("0.0.1")?;
+///
+///     // sleep here simulator your program
+///     std::thread::sleep(std::time::Duration::from_secs(3));
+///
+///     // at the end of your program, you can call printstd to print to the STDOUT a alert information for a new version which released
+///     version_context.printstd();
+///     Ok(())
+/// }
+/// ```
 pub struct GitHubVendor {
     base_url: String,
     owner: String,
@@ -29,12 +55,24 @@ pub struct GitHubVendor {
 }
 
 impl GitHubVendor {
-    /// create GitHubVendor instance
+    /// create Github instance
+    ///
+    /// # Arguments
+    ///
+    /// * `owner` - Github owner/organization
+    /// * `repo` - GitHub repo name
     pub fn new(owner: &str, repo: &str) -> Self {
         Self::custom(owner, repo, None)
     }
 
-    /// create GitHubVendor instance with custom settings
+    /// create Github instance
+    ///
+    /// # Arguments
+    ///
+    /// * `owner` - Github owner/organization
+    /// * `repo` - GitHub repo name
+    /// * `base_url` - GitHub custom URL
+    ///
     pub fn custom(owner: &str, repo: &str, base_url: Option<String>) -> Self {
         Self {
             base_url: base_url.unwrap_or_else(|| DEFAULT_GITHUB_URL.to_string()),

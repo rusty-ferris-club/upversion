@@ -31,9 +31,12 @@ impl CheckVersion {
     ///
     /// Will return `Err` if runtime multi thread could not be build
     pub fn new(app_name: &str, vendor: Box<dyn Vendor + Send>, timeout: u64) -> AnyResult<Self> {
-        let mut easy = Easy::new();
-        easy.timeout(Duration::from_secs(timeout))?;
-        easy.useragent(format!("User-Agent: upversion-{}", app_name).as_str())?;
+        let easy = {
+            let mut easy = Easy::new();
+            easy.timeout(Duration::from_secs(timeout))?;
+            easy.useragent(format!("User-Agent: upversion-{}", app_name).as_str())?;
+            easy
+        };
 
         Ok(Self {
             client: Arc::new(Mutex::new(easy)),
