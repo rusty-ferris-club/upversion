@@ -19,16 +19,16 @@
 
 # upversion
 
-`upversion` provides a simple way to alert all users about new release versions.
-The purpose of this lib is to inform the user that working with CLI tool or lib a message when has a new release, and give a link to the new version.
-
-## How it works
-`upversion` running as a background process will not affect your tool performance. If your tool is finished before `upversion`, you can decide if you want to wait until `upversion` or complete your process.
+`upversion` provides you to notify your clients when new version release and show a the latest download link .
 
 ```sh
 $ ./test-tool
-==> 🙆‍♂️ Newer app-name version available: 0.1.0 (currently running: 0.5.2) | Link: <dynamic-link>
+==> 🙆‍♂️ Newer <tool-name> version available: <user-version> (currently running: 0.5.2) | Link: <dynamic-link>
 ```
+
+## How it works
+`upversion` running in a background process which not affect your tool performance. If your tool is finished before `upversion`, you can decide if you want to wait until `upversion` or complete your process.
+
 
 ## Usage
 Add this to Cargo.toml:
