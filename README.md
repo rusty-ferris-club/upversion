@@ -1,11 +1,5 @@
 [![Build](https://github.com/rusty-ferris-club/upversion/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rusty-ferris-club/upversion/actions/workflows/ci.yml)
 <p align="center">
-<br/>
-<br/>
-<br/>
-   <img src="logo-here" width="300"/>
-<br/>
-<br/>
 </p>
 <p align="center">
 <b>:label: keep your client up to date</b>
