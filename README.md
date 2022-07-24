@@ -21,8 +21,9 @@ $ ./test-tool
 ```
 
 ## How it works
-`upversion` running in a background process which not affect your tool performance. If your tool is finished before `upversion`, you can decide if you want to wait until `upversion` or complete your process.
-
+`upversion` running as a background process which not affect your tool performance.
+1. you can choose when present the newer version
+2. you can skip message notification if your proccess finished before `upversion`
 
 ## Usage
 Add this to Cargo.toml:
