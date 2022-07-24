@@ -13,7 +13,7 @@
 
 # upversion
 
-`upversion` provides you to notify your clients when new version release and show a the latest download link .
+`upversion` provides you to notify your clients when new version release and show the latest download link.
 
 ```sh
 $ ./test-tool
