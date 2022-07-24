@@ -1,6 +1,6 @@
 [package]
 name = "upversion"
-description = ""
+description = "provides you to notify your clients when new version released"
 version = "0.1.0"
 edition = "2021"
 authors = ["Elad-Kaplan <kaplan.elad@gmail.com>"]
